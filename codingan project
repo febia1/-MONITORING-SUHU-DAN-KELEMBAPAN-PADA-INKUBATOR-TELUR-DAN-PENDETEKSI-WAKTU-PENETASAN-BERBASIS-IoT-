@@ -1,0 +1,192 @@
+#define BLYNK_TEMPLATE_ID "TMPL6E6lq1ADa"
+#define BLYNK_TEMPLATE_NAME "MONITORING SUHU DAN KELEMBAPAN PADA INKUBATOR"
+
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <DHT.h>
+#include <ESP32Servo.h>
+#include <WiFi.h>
+#include <BlynkSimpleEsp32.h>
+
+// Konfigurasi DHT22
+#define DHTPIN 4
+#define DHTTYPE DHT22
+DHT dht(DHTPIN, DHTTYPE);
+
+// Konfigurasi LCD
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+// Konfigurasi Ultrasonik
+#define TRIG_PIN 27
+#define ECHO_PIN 26
+
+// Konfigurasi Servo
+Servo servo;
+#define SERVO_PIN 14
+
+// Konfigurasi LED
+#define LED_PIN 12
+
+// Konfigurasi Blynk
+char auth[] = "xe1LabGukGm0JmhBX0Ddffylf56KOTjQ"; // Ganti dengan Auth Token Blynk kamu
+char ssid[] = "Wokwi-GUEST"; // Ganti dengan SSID WiFi kamu
+char pass[] = ""; // Ganti dengan password WiFi kamu
+
+// Variabel lain
+float temperature = 0.0, humidity = 0.0, distance = 0.0;
+bool servoActivated = false; // Status servo
+unsigned long previousMillisDHT = 0;
+
+// Inisialisasi Blynk Data Stream
+BlynkTimer timer;
+WidgetTerminal terminal(V5); // Ganti V5 dengan Virtual Pin Terminal yang kamu inginkan
+
+BLYNK_WRITE(V0) { // Virtual Pin V0 untuk mengontrol servo dari aplikasi Blynk
+  int servoPosition = param.asInt();
+  servo.write(servoPosition);
+}
+
+void sendSensorData() {
+  // Kirim data ke Data Stream
+  Blynk.virtualWrite(V3, temperature); // Ganti V3 dengan Virtual Pin Data Stream untuk suhu
+  Blynk.virtualWrite(V4, humidity);   // Ganti V4 dengan Virtual Pin Data Stream untuk kelembapan
+
+  // Tampilkan data di Terminal 
+  terminal.println("Suhu: " + String(temperature) + " C");
+  terminal.println("Kelembapan: " + String(humidity) + " %");
+  terminal.flush(); 
+}
+
+void setup() {
+  // Inisialisasi Serial Monitor
+  Serial.begin(115200);
+  Serial.println("Inisialisasi...");
+
+  // Inisialisasi DHT22
+  dht.begin();
+  Serial.println("DHT22 siap.");
+
+  // Inisialisasi LCD
+  lcd.init();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  lcd.print("Initializing...");
+  delay(2000);
+  lcd.clear();
+  Serial.println("LCD siap.");
+
+  // Inisialisasi Ultrasonik
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+
+  // Inisialisasi Servo
+  servo.attach(SERVO_PIN, 1000, 2000); // Rentang PWM standar servo
+  servo.write(0); // Posisi awal servo
+  Serial.println("Servo siap.");
+
+  // Inisialisasi LED
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LOW);
+
+  // Inisialisasi WiFi dan Blynk
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+  WiFi.begin(ssid, pass);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  Blynk.config(auth);
+  Blynk.connect();
+
+  // Setup timer untuk Data Stream
+  timer.setInterval(2000L, sendSensorData); // Kirim data setiap 2 detik
+
+  Serial.println("Semua komponen siap.");
+}
+
+void loop() {
+  Blynk.run();
+  timer.run(); 
+
+  unsigned long currentMillis = millis();
+
+  // Baca data DHT22 setiap 2 detik
+  if (currentMillis - previousMillisDHT >= 2000) {
+    previousMillisDHT = currentMillis;
+
+    // Baca suhu dan kelembapan
+    temperature = dht.readTemperature();
+    humidity = dht.readHumidity();
+
+    if (isnan(temperature) || isnan(humidity)) {
+      Serial.println("Gagal membaca data dari DHT22!");
+      lcd.setCursor(0, 0);
+      lcd.print("Sensor Error!");
+      return;
+    }
+
+    // Debugging suhu dan kelembapan
+    Serial.print("Temp: ");
+    Serial.print(temperature);
+    Serial.print(" C, Hum: ");
+    Serial.println(humidity);
+
+    // Tampilkan di LCD
+    lcd.setCursor(0, 0);
+    lcd.print("Temp: ");
+    lcd.print(temperature, 1);
+    lcd.print(" C");
+    lcd.setCursor(0, 1);
+    lcd.print("Hum: ");
+    lcd.print(humidity, 1);
+    lcd.print(" %");
+
+    // Kirim data ke Blynk
+    Blynk.virtualWrite(V1, temperature); // Virtual Pin V1 untuk suhu
+    Blynk.virtualWrite(V2, humidity); // Virtual Pin V2 untuk kelembapan
+  }
+
+  // Baca data Ultrasonik
+  distance = readUltrasonicDistance();
+  if (distance >= 0 && distance < 400) { // Cek jarak valid
+    Serial.print("Distance: ");
+    Serial.print(distance);
+    Serial.println(" cm");
+  } else {
+    Serial.println("Gagal membaca jarak atau objek terlalu jauh!");
+    distance = 0;
+  }
+
+  // Logika kontrol servo berdasarkan suhu
+  if (temperature >= 35.0 && !servoActivated) {
+    servo.write(90); // Putar servo 90 derajat
+    servoActivated = true; // Tandai servo sudah diaktifkan
+    digitalWrite(LED_PIN, HIGH); // LED menyala
+    Serial.println("Suhu mencapai 35 derajat, servo diaktifkan.");
+  } else if (temperature < 35.0 && servoActivated) {
+    servo.write(0); // Kembalikan servo ke posisi awal
+    servoActivated = false; // Tandai servo nonaktif
+    digitalWrite(LED_PIN, LOW); // LED mati
+    Serial.println("Suhu di bawah 35 derajat, servo dinonaktifkan.");
+  }
+}
+
+float readUltrasonicDistance() {
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+
+  float duration = pulseIn(ECHO_PIN, HIGH, 50000); // Timeout 50ms
+  if (duration == 0 || duration > 50000) {
+    return -1; // Gagal membaca
+  }
+  return (duration * 0.034 / 2); // Hitung jarak dalam cm
+}
