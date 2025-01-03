@@ -1,0 +1,27 @@
+1. Perencanaan Sistem
+Menentukan kebutuhan alat dan bahan yang diperlukan, termasuk perangkat keras                                     (NodeMCU, sensor motor servo) dan perangkat lunak (plikasi Blynk).
+Mendesain diagram sistem, mencakup koneksi komponen elektronik dan alur kerja  sistem.
+
+2.Perakitan Hardware
+                   Merakit NodeMCU ESP8266 dengan sensor DHT22 relay module, motor servo,    dan kipas DC menggunakan breadboard.
+Menghubungkan heater (pemanas) dan kipas ke relay module untuk dikendalikan secara otomatis.
+
+Pemrograman Sistem
+           Pemrograman NodeMCU
+Menulis kode menggunakan Arduino IDE untuk membaca data dari sensor suhu dan kelembapan.
+Menambahkan kontrol untuk heater, kipas, dan motor servo berdasarkan data sensor.
+Mengintegrasikan NodeMCU dengan platform IoT (Blynk) untuk pemantauan dan pengendalian jarak jauh.
+            3.Integrasi Blynk
+Membuat proyek di aplikasi Blynk untuk menampilkan data suhu, kelembapan, dan status perangkat secara real-time.
+Mengatur notifikasi untuk memberikan peringatan jika parameter lingkungan keluar dari batas optimal.
+
+4. Pengujian Sistem
+       Pengujian Komponen Individu
+Menguji setiap komponen seperti sensor, relay, motor servo, dan koneksi internet untuk memastikan semuanya berfungsi dengan baik.
+      Pengujian Fungsional Sistem
+Memasukkan telur ke dalam inkubator dan memantau suhu, kelembapan, serta rotasi telur selama proses penetasan.
+Mengamati apakah notifikasi dan kontrol melalui Blynk berfungsi sesuai yang diharapkan.
+
+5. Analisis dan Penyempurnaan
+     Mengevaluasi hasil pengujian dengan membandingkan data suhu, kelembapan, dan      tingkat keberhasilan penetasan.
+  Melakukan perbaikan pada hardware atau software jika ditemukan kekurangan selama pengujian.
